@@ -40,8 +40,8 @@ def generate_and_send_routine(request):
         # Initialize Vertex AI for the Google Cloud project
         vertexai.init(project=project_id, location=region)
         
-        # Use Gemini 3.5 Flash
-        model = GenerativeModel("gemini-3.5-flash-001")
+        # Use Gemini 1.5 Flash 001 which is fully supported in us-central1
+        model = GenerativeModel("gemini-1.5-flash-001")
         
         prompt = (
             "You are a fitness coach. Create a unique daily bodyweight routine. "
