@@ -199,15 +199,4 @@ resource "google_cloudfunctions2_function" "workouts_api" {
   }
 }
 
-# Allow public unauthenticated access to the API function
-resource "google_cloud_run_service_iam_member" "public_api_invoker" {
-  location = google_cloudfunctions2_function.workouts_api.location
-  service  = google_cloudfunctions2_function.workouts_api.name
-  role     = "roles/run.invoker"
-  member   = "allUsers"
-}
 
-output "workouts_api_url" {
-  value       = google_cloudfunctions2_function.workouts_api.service_config[0].uri
-  description = "The public URL of the Workouts API"
-}
