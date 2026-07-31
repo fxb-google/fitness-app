@@ -41,7 +41,7 @@ def generate_and_send_routine(request):
         vertexai.init(project=project_id, location=region)
         
         # Use Gemini 1.5 Flash (fast, smart, and cost-effective)
-        model = GenerativeModel("gemini-1.5-flash")
+        model = GenerativeModel("gemini-1.5-flash-001")
         
         prompt = (
             "You are a fitness coach. Create a unique daily bodyweight routine. "

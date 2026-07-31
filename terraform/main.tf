@@ -101,7 +101,7 @@ resource "google_cloudfunctions2_function" "fitness_agent" {
 
   service_config {
     max_instance_count    = 1
-    available_memory      = "256M"
+    available_memory      = "512M"
     timeout_seconds       = 120
     service_account_email = google_service_account.fitness_sa.email
     
