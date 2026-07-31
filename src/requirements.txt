@@ -1,2 +1,2 @@
-google-antigravity
-functions-framework
+functions-framework==3.5.0
+google-cloud-aiplatform==1.50.0

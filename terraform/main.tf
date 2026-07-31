@@ -19,7 +19,8 @@ resource "google_project_service" "services" {
     "cloudbuild.googleapis.com",
     "run.googleapis.com",
     "cloudscheduler.googleapis.com",
-    "storage.googleapis.com"
+    "storage.googleapis.com",
+    "aiplatform.googleapis.com"
   ])
   service            = each.key
   disable_on_destroy = false
@@ -71,6 +72,13 @@ resource "google_project_iam_member" "sa_storage" {
   member  = "serviceAccount:${google_service_account.fitness_sa.email}"
 }
 
+# Grant Vertex AI permission
+resource "google_project_iam_member" "sa_aiplatform" {
+  project = var.project_id
+  role    = "roles/aiplatform.user"
+  member  = "serviceAccount:${google_service_account.fitness_sa.email}"
+}
+
 data "google_project" "project" {}
 
 # Cloud Function (2nd Gen)
@@ -101,6 +109,8 @@ resource "google_cloudfunctions2_function" "fitness_agent" {
       SMTP_USERNAME = var.smtp_username
       SMTP_PASSWORD = var.smtp_password
       TARGET_EMAIL  = var.target_email
+      PROJECT_ID    = var.project_id
+      REGION        = var.region
     }
   }
 }
@@ -118,7 +128,8 @@ resource "google_cloud_scheduler_job" "fitness_trigger" {
     google_project_service.services,
     google_project_iam_member.sa_logging,
     google_project_iam_member.sa_artifactregistry,
-    google_project_iam_member.sa_storage
+    google_project_iam_member.sa_storage,
+    google_project_iam_member.sa_aiplatform
   ]
 
   http_target {
