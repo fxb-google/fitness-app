@@ -16,7 +16,7 @@ def send_email(routine: str) -> str:
     msg.set_content(f"Here is your 25-minute bodyweight routine for today:\n\n{routine}")
     msg['Subject'] = 'Your Daily Bodyweight Routine'
     msg['From'] = smtp_username
-    msg['To'] = smtp_username
+    msg['To'] = 'fx.barbalat@gmail.com'
     
     try:
         with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
