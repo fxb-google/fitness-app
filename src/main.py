@@ -3,10 +3,11 @@ import smtplib
 from email.message import EmailMessage
 import functions_framework
 from google import genai
-from google.cloud import firestore
+from google.cloud import firestore, storage
 import json
+from datetime import timedelta
 
-def send_email(routine: str) -> str:
+def send_email(routine: str, dashboard_link: str) -> str:
     """Sends the generated fitness routine via email."""
     smtp_username = os.environ.get("SMTP_USERNAME")
     smtp_password = os.environ.get("SMTP_PASSWORD", "").replace(" ", "")
@@ -16,7 +17,7 @@ def send_email(routine: str) -> str:
         return "Failed: SMTP_USERNAME, SMTP_PASSWORD, or TARGET_EMAIL environment variables not set."
         
     msg = EmailMessage()
-    msg.set_content(f"Here is your daily fitness routine:\n\n{routine}")
+    msg.set_content(f"Here is your daily fitness routine:\n\n{routine}\n\n---\nView your history on the Dashboard: {dashboard_link}")
     msg['Subject'] = 'Your Daily Bodyweight Routine'
     msg['From'] = smtp_username
     msg['To'] = target_email
@@ -85,32 +86,25 @@ Format the response cleanly in plain text without markdown formatting if possibl
             "routine": routine
         })
         
-        email_status = send_email(routine)
+        # Upload history and generate signed URL
+        signed_url = upload_and_sign_workouts(db, project_id)
+        
+        # Construct the magic link
+        # Note: Replace with the actual GitHub Pages URL
+        github_pages_url = "https://fxb-google.github.io/fitness-app/"
+        dashboard_link = f"{github_pages_url}?data={signed_url}"
+        
+        email_status = send_email(routine, dashboard_link)
         return f"Routine generated and saved to history. {email_status}", 200
         
     except Exception as e:
         print(f"Error: {e}")
         return f"Error generating routine: {e}", 500
 
-@functions_framework.http
-def get_workouts(request):
-    """HTTP Cloud Function to return workout history as JSON."""
-    # Set CORS headers for the preflight request
-    if request.method == 'OPTIONS':
-        headers = {
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'GET',
-            'Access-Control-Allow-Headers': 'Content-Type',
-            'Access-Control-Max-Age': '3600'
-        }
-        return ('', 204, headers)
-
-    headers = {'Access-Control-Allow-Origin': '*'}
-    
+def upload_and_sign_workouts(db, project_id):
+    """Fetches workouts, uploads to GCS, and returns a 7-day signed URL."""
     try:
-        project_id = os.environ.get("PROJECT_ID")
-        db = firestore.Client(project=project_id)
-        
+        # Fetch last 30 workouts
         workouts_ref = db.collection("workouts").order_by("timestamp", direction=firestore.Query.DESCENDING).limit(30)
         
         history = []
@@ -120,7 +114,25 @@ def get_workouts(request):
                 data['timestamp'] = data['timestamp'].isoformat()
             history.append(data)
             
-        return (json.dumps(history), 200, headers)
+        json_data = json.dumps(history)
+        
+        # Upload to GCS
+        storage_client = storage.Client(project=project_id)
+        bucket_name = f"{project_id}-dashboard-data"
+        bucket = storage_client.bucket(bucket_name)
+        blob = bucket.blob("workouts.json")
+        
+        # Set content type to JSON
+        blob.upload_from_string(json_data, content_type="application/json")
+        
+        # Generate 7-day signed URL for reading
+        url = blob.generate_signed_url(
+            version="v4",
+            expiration=timedelta(days=7),
+            method="GET"
+        )
+        return url
     except Exception as e:
-        print(f"Error fetching workouts: {e}")
-        return (json.dumps({"error": str(e)}), 500, headers)
+        print(f"Error generating signed URL: {e}")
+        # Fallback to an empty string if it fails
+        return ""

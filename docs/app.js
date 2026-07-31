@@ -1,6 +1,3 @@
-// TODO: Replace this with the URL output by Terraform after deploying
-const API_URL = "YOUR_API_URL_HERE";
-
 document.addEventListener("DOMContentLoaded", () => {
     fetchWorkouts();
 });
@@ -9,18 +6,22 @@ async function fetchWorkouts() {
     const container = document.getElementById("workouts-container");
     const loader = document.getElementById("loader");
 
-    if (API_URL === "YOUR_API_URL_HERE") {
+    // Extract the Signed URL from the ?data= query parameter
+    const urlParams = new URLSearchParams(window.location.search);
+    const signedUrl = urlParams.get('data');
+
+    if (!signedUrl) {
         loader.style.display = "none";
         container.innerHTML = `
             <div class="workout-card" style="text-align: center;">
-                <p style="color: #fca5a5;">Configuration Error: Please update the <strong>API_URL</strong> in <code>app.js</code> with your Cloud Function URL and push the changes.</p>
+                <p style="color: #fca5a5;"><strong>Welcome to your AI Fitness Dashboard!</strong><br><br>Please open this page using the Magic Link provided in your daily workout email to securely load your data.</p>
             </div>
         `;
         return;
     }
 
     try {
-        const response = await fetch(API_URL);
+        const response = await fetch(signedUrl);
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }

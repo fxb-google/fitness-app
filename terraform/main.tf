@@ -169,34 +169,28 @@ resource "google_cloud_run_service_iam_member" "scheduler_invoker" {
   member   = "serviceAccount:${google_service_account.fitness_sa.email}"
 }
 
-# Cloud Function (API for Dashboard)
-resource "google_cloudfunctions2_function" "workouts_api" {
-  name        = "workouts-api-function"
-  location    = var.region
-  description = "API to fetch workouts for Dashboard"
+# Bucket for storing dashboard data (workouts.json)
+resource "google_storage_bucket" "dashboard_data" {
+  name                        = "${var.project_id}-dashboard-data"
+  location                    = var.region
+  uniform_bucket_level_access = true
+  depends_on                  = [google_project_service.services]
 
-  build_config {
-    runtime         = "python311"
-    entry_point     = "get_workouts"
-    service_account = google_service_account.fitness_sa.id
-    source {
-      storage_source {
-        bucket = google_storage_bucket.function_bucket.name
-        object = google_storage_bucket_object.object.name
-      }
-    }
-  }
-
-  service_config {
-    max_instance_count    = 5
-    available_memory      = "256M"
-    timeout_seconds       = 60
-    service_account_email = google_service_account.fitness_sa.email
-    
-    environment_variables = {
-      PROJECT_ID = var.project_id
-    }
+  cors {
+    origin          = ["https://fxb-google.github.io"]
+    method          = ["GET", "OPTIONS"]
+    response_header = ["*"]
+    max_age_seconds = 3600
   }
 }
 
+# Grant the Service Account token creator role to itself to sign URLs
+resource "google_project_iam_member" "sa_token_creator" {
+  project = var.project_id
+  role    = "roles/iam.serviceAccountTokenCreator"
+  member  = "serviceAccount:${google_service_account.fitness_sa.email}"
+}
 
+output "dashboard_bucket_name" {
+  value = google_storage_bucket.dashboard_data.name
+}
