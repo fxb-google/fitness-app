@@ -64,6 +64,7 @@ Requirements:
 - 2 or 3 times a week, provide an alternative option like: 'Follow this workout, or alternatively go for a 30-minute run', while still providing the full HIIT workout.
 - Include a description of the muscle groups engaged.
 - Include an estimated calorie burn for a man weighing above 90kg.
+- Label the workout clearly at the top as "Day X" where X is the current workout count (if history is empty, it is Day 1).
 
 Workout History (Last 14 days):
 {history_text}
