@@ -1,18 +1,8 @@
 import os
 import smtplib
-import random
 from email.message import EmailMessage
 import functions_framework
-
-def get_random_routine() -> str:
-    routines = [
-        "HIIT Routine 1: 40s work / 20s rest (20 mins)\nWarm-up: 5 mins jumping jacks & high knees.\n- Push-ups (Chest, Triceps, Core)\n- Bodyweight Squats (Quads, Glutes)\n- Mountain Climbers (Core, Shoulders)\n- Lunges (Legs)\n- Plank (Core)\nAlternative: 30-minute run.\nEstimated Calorie Burn: ~300 kcal.",
-        "HIIT Routine 2: 40s work / 20s rest (20 mins)\nWarm-up: 5 mins jump rope simulation.\n- Burpees (Full body)\n- Bicycle Crunches (Core, Obliques)\n- Jump Squats (Legs, Cardio)\n- Tricep Dips on chair (Triceps)\n- High Knees (Cardio, Legs)\nAlternative: 30-minute swim.\nEstimated Calorie Burn: ~320 kcal.",
-        "HIIT Routine 3: 40s work / 20s rest (20 mins)\nWarm-up: 5 mins light jogging in place.\n- Spiderman Push-ups (Chest, Core)\n- Bulgarian Split Squats (Quads, Glutes)\n- Russian Twists (Core)\n- Bear Crawls (Shoulders, Core)\n- Wall Sit (Quads)\nAlternative: 45-minute brisk walk.\nEstimated Calorie Burn: ~290 kcal.",
-        "HIIT Routine 4: 40s work / 20s rest (20 mins)\nWarm-up: 5 mins dynamic stretching.\n- Jumping Lunges (Legs, Cardio)\n- Diamond Push-ups (Triceps, Chest)\n- V-Ups (Core)\n- Skaters (Glutes, Cardio)\n- Plank Jacks (Core, Shoulders)\nAlternative: 30-minute cycling.\nEstimated Calorie Burn: ~310 kcal.",
-        "HIIT Routine 5: 40s work / 20s rest (20 mins)\nWarm-up: 5 mins shadow boxing.\n- Tuck Jumps (Cardio, Legs)\n- Pike Push-ups (Shoulders)\n- Flutter Kicks (Lower Core)\n- Reverse Lunges (Glutes, Quads)\n- Superman Holds (Lower Back)\nAlternative: 30-minute rowing.\nEstimated Calorie Burn: ~305 kcal."
-    ]
-    return random.choice(routines)
+from google import genai
 
 def send_email(routine: str) -> str:
     """Sends the generated fitness routine via email."""
@@ -40,8 +30,34 @@ def send_email(routine: str) -> str:
 @functions_framework.http
 def generate_and_send_routine(request):
     """HTTP Cloud Function entrypoint."""
+    
     try:
-        routine = get_random_routine()
+        api_key = os.environ.get("GEMINI_API_KEY")
+        
+        if not api_key:
+            return "Error: GEMINI_API_KEY environment variable not set.", 500
+            
+        # Initialize the modern unified Google GenAI SDK using the standard Developer API key
+        client = genai.Client(api_key=api_key)
+        
+        prompt = (
+            "You are a fitness coach. Create a unique daily bodyweight routine. "
+            "Requirements:\n"
+            "- It must be a HIIT routine: 40 seconds of exercise, 20 seconds of rest, for 20 minutes total.\n"
+            "- Include a 5-minute warm-up using jump ropes or similar cardio movements.\n"
+            "- 2 or 3 times a week, provide an alternative option like: 'Follow this workout, or alternatively go for a 30-minute run', while still providing the full HIIT workout.\n"
+            "- Include a description of the muscle groups engaged.\n"
+            "- Include an estimated calorie burn for a man weighing above 90kg.\n"
+            "Format the response cleanly in plain text."
+        )
+        
+        response = client.models.generate_content(
+            model='gemini-2.0-flash',
+            contents=prompt,
+        )
+        
+        routine = response.text
+        
         email_status = send_email(routine)
         return f"Routine generated. {email_status}", 200
         
