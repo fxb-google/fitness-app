@@ -46,6 +46,31 @@ resource "google_storage_bucket_object" "object" {
   source = data.archive_file.source_zip.output_path
 }
 
+# Custom Service Account for Cloud Function (Build & Run)
+resource "google_service_account" "fitness_sa" {
+  account_id   = "fitness-function-sa"
+  display_name = "Fitness Cloud Function Service Account"
+}
+
+# Grant necessary permissions for Cloud Build
+resource "google_project_iam_member" "sa_logging" {
+  project = var.project_id
+  role    = "roles/logging.logWriter"
+  member  = "serviceAccount:${google_service_account.fitness_sa.email}"
+}
+
+resource "google_project_iam_member" "sa_artifactregistry" {
+  project = var.project_id
+  role    = "roles/artifactregistry.writer"
+  member  = "serviceAccount:${google_service_account.fitness_sa.email}"
+}
+
+resource "google_project_iam_member" "sa_storage" {
+  project = var.project_id
+  role    = "roles/storage.admin"
+  member  = "serviceAccount:${google_service_account.fitness_sa.email}"
+}
+
 data "google_project" "project" {}
 
 # Cloud Function (2nd Gen)
@@ -55,8 +80,9 @@ resource "google_cloudfunctions2_function" "fitness_agent" {
   description = "Fitness Agent Cloud Function"
 
   build_config {
-    runtime     = "python311"
-    entry_point = "generate_and_send_routine"
+    runtime         = "python311"
+    entry_point     = "generate_and_send_routine"
+    service_account = google_service_account.fitness_sa.id
     source {
       storage_source {
         bucket = google_storage_bucket.function_bucket.name
@@ -66,9 +92,10 @@ resource "google_cloudfunctions2_function" "fitness_agent" {
   }
 
   service_config {
-    max_instance_count = 1
-    available_memory   = "256M"
-    timeout_seconds    = 120
+    max_instance_count    = 1
+    available_memory      = "256M"
+    timeout_seconds       = 120
+    service_account_email = google_service_account.fitness_sa.email
     
     environment_variables = {
       SMTP_USERNAME = var.smtp_username
@@ -87,14 +114,27 @@ resource "google_cloud_scheduler_job" "fitness_trigger" {
   attempt_deadline = "320s"
   region           = var.region
   
-  depends_on = [google_project_service.services]
+  depends_on = [
+    google_project_service.services,
+    google_project_iam_member.sa_logging,
+    google_project_iam_member.sa_artifactregistry,
+    google_project_iam_member.sa_storage
+  ]
 
   http_target {
     http_method = "POST"
     uri         = google_cloudfunctions2_function.fitness_agent.service_config[0].uri
     
     oidc_token {
-      service_account_email = "${data.google_project.project.number}-compute@developer.gserviceaccount.com"
+      service_account_email = google_service_account.fitness_sa.email
     }
   }
+}
+
+# Allow the custom SA to invoke the function via Cloud Run IAM
+resource "google_cloud_run_service_iam_member" "scheduler_invoker" {
+  location = google_cloudfunctions2_function.fitness_agent.location
+  service  = google_cloudfunctions2_function.fitness_agent.name
+  role     = "roles/run.invoker"
+  member   = "serviceAccount:${google_service_account.fitness_sa.email}"
 }
