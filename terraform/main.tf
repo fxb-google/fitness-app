@@ -74,6 +74,19 @@ resource "google_secret_manager_secret_version" "smtp_password_version" {
   secret_data = var.smtp_password
 }
 
+resource "google_secret_manager_secret" "target_email" {
+  secret_id = "fitness_agent_target_email"
+  replication {
+    auto {}
+  }
+  depends_on = [google_project_service.services]
+}
+
+resource "google_secret_manager_secret_version" "target_email_version" {
+  secret      = google_secret_manager_secret.target_email.id
+  secret_data = var.target_email
+}
+
 # Grant the default compute service account access to the secrets
 data "google_project" "project" {}
 
@@ -85,6 +98,12 @@ resource "google_secret_manager_secret_iam_member" "secret_access_username" {
 
 resource "google_secret_manager_secret_iam_member" "secret_access_password" {
   secret_id = google_secret_manager_secret.smtp_password.id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${data.google_project.project.number}-compute@developer.gserviceaccount.com"
+}
+
+resource "google_secret_manager_secret_iam_member" "secret_access_target_email" {
+  secret_id = google_secret_manager_secret.target_email.id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${data.google_project.project.number}-compute@developer.gserviceaccount.com"
 }
@@ -124,11 +143,19 @@ resource "google_cloudfunctions2_function" "fitness_agent" {
       secret     = google_secret_manager_secret.smtp_password.secret_id
       version    = "latest"
     }
+
+    secret_environment_variables {
+      key        = "TARGET_EMAIL"
+      project_id = var.project_id
+      secret     = google_secret_manager_secret.target_email.secret_id
+      version    = "latest"
+    }
   }
 
   depends_on = [
     google_secret_manager_secret_iam_member.secret_access_username,
-    google_secret_manager_secret_iam_member.secret_access_password
+    google_secret_manager_secret_iam_member.secret_access_password,
+    google_secret_manager_secret_iam_member.secret_access_target_email
   ]
 }
 

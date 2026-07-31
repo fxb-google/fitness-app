@@ -8,15 +8,16 @@ def send_email(routine: str) -> str:
     """Sends the generated fitness routine via email."""
     smtp_username = os.environ.get("SMTP_USERNAME")
     smtp_password = os.environ.get("SMTP_PASSWORD")
+    target_email = os.environ.get("TARGET_EMAIL")
     
-    if not smtp_username or not smtp_password:
-        return "Failed: SMTP_USERNAME or SMTP_PASSWORD environment variables not set."
+    if not smtp_username or not smtp_password or not target_email:
+        return "Failed: SMTP_USERNAME, SMTP_PASSWORD, or TARGET_EMAIL environment variables not set."
         
     msg = EmailMessage()
     msg.set_content(f"Here is your 25-minute bodyweight routine for today:\n\n{routine}")
     msg['Subject'] = 'Your Daily Bodyweight Routine'
     msg['From'] = smtp_username
-    msg['To'] = 'fx.barbalat@gmail.com'
+    msg['To'] = target_email
     
     try:
         with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:

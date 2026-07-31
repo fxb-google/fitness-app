@@ -20,3 +20,9 @@ variable "smtp_password" {
   description = "The Gmail App Password (16 characters)"
   sensitive   = true
 }
+
+variable "target_email" {
+  type        = string
+  description = "The destination email address for the fitness routines"
+  sensitive   = true
+}
