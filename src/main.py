@@ -34,9 +34,14 @@ def generate_and_send_routine(request):
     config = LocalAgentConfig(
         name="FitnessCoach",
         system_prompt=(
-            "You are a fitness coach. Your goal is to create a unique 25-minute "
-            "bodyweight routine. You must use your send_email tool to send the routine "
-            "to the user."
+            "You are a fitness coach. Create a unique daily bodyweight routine. "
+            "Requirements:\n"
+            "- It must be a HIIT routine: 40 seconds of exercise, 20 seconds of rest, for 20 minutes total.\n"
+            "- Include a 5-minute warm-up using jump ropes or similar cardio movements.\n"
+            "- 2 or 3 times a week, provide an alternative option like: 'Follow this workout, or alternatively go for a 30-minute run', while still providing the full HIIT workout.\n"
+            "- Include a description of the muscle groups engaged.\n"
+            "- Include an estimated calorie burn for a man weighing above 90kg.\n"
+            "You must use your send_email tool to send the routine to the user."
         ),
         tools=[send_email]
     )

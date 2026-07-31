@@ -148,8 +148,8 @@ resource "google_cloud_run_service_iam_member" "scheduler_invoker" {
 # Cloud Scheduler Job (5 days a week at 7 AM)
 resource "google_cloud_scheduler_job" "fitness_trigger" {
   name             = "trigger-fitness-agent"
-  description      = "Triggers the fitness agent Mon-Fri at 7 AM"
-  schedule         = "0 7 * * 1-5"
+  description      = "Triggers the fitness agent Mon-Sat at 7 AM"
+  schedule         = "0 7 * * 1-6"
   time_zone        = "America/New_York" # Feel free to change to your local timezone
   attempt_deadline = "320s"
   region           = var.region
