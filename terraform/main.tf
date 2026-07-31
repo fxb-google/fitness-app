@@ -20,7 +20,8 @@ resource "google_project_service" "services" {
     "run.googleapis.com",
     "cloudscheduler.googleapis.com",
     "storage.googleapis.com",
-    "aiplatform.googleapis.com"
+    "aiplatform.googleapis.com",
+    "firestore.googleapis.com"
   ])
   service            = each.key
   disable_on_destroy = false
@@ -79,6 +80,22 @@ resource "google_project_iam_member" "sa_aiplatform" {
   member  = "serviceAccount:${google_service_account.fitness_sa.email}"
 }
 
+# Grant Firestore permission
+resource "google_project_iam_member" "sa_datastore" {
+  project = var.project_id
+  role    = "roles/datastore.user"
+  member  = "serviceAccount:${google_service_account.fitness_sa.email}"
+}
+
+# Firestore Database (Default)
+resource "google_firestore_database" "database" {
+  project     = var.project_id
+  name        = "(default)"
+  location_id = var.region
+  type        = "FIRESTORE_NATIVE"
+  depends_on  = [google_project_service.services]
+}
+
 data "google_project" "project" {}
 
 # Cloud Function (2nd Gen)
@@ -130,7 +147,8 @@ resource "google_cloud_scheduler_job" "fitness_trigger" {
     google_project_iam_member.sa_logging,
     google_project_iam_member.sa_artifactregistry,
     google_project_iam_member.sa_storage,
-    google_project_iam_member.sa_aiplatform
+    google_project_iam_member.sa_aiplatform,
+    google_project_iam_member.sa_datastore
   ]
 
   http_target {
