@@ -87,25 +87,28 @@ resource "google_secret_manager_secret_version" "target_email_version" {
   secret_data = var.target_email
 }
 
-# Grant the default compute service account access to the secrets
-data "google_project" "project" {}
+# Create a custom service account for the Cloud Function to bypass Domain Restricted Sharing issues
+resource "google_service_account" "function_sa" {
+  account_id   = "fitness-function-sa"
+  display_name = "Fitness Cloud Function Service Account"
+}
 
 resource "google_secret_manager_secret_iam_member" "secret_access_username" {
   secret_id = google_secret_manager_secret.smtp_username.id
   role      = "roles/secretmanager.secretAccessor"
-  member    = "serviceAccount:${data.google_project.project.number}-compute@developer.gserviceaccount.com"
+  member    = "serviceAccount:${google_service_account.function_sa.email}"
 }
 
 resource "google_secret_manager_secret_iam_member" "secret_access_password" {
   secret_id = google_secret_manager_secret.smtp_password.id
   role      = "roles/secretmanager.secretAccessor"
-  member    = "serviceAccount:${data.google_project.project.number}-compute@developer.gserviceaccount.com"
+  member    = "serviceAccount:${google_service_account.function_sa.email}"
 }
 
 resource "google_secret_manager_secret_iam_member" "secret_access_target_email" {
   secret_id = google_secret_manager_secret.target_email.id
   role      = "roles/secretmanager.secretAccessor"
-  member    = "serviceAccount:${data.google_project.project.number}-compute@developer.gserviceaccount.com"
+  member    = "serviceAccount:${google_service_account.function_sa.email}"
 }
 
 # Cloud Function (2nd Gen)
@@ -126,9 +129,10 @@ resource "google_cloudfunctions2_function" "fitness_agent" {
   }
 
   service_config {
-    max_instance_count = 1
-    available_memory   = "256M"
-    timeout_seconds    = 120
+    max_instance_count    = 1
+    available_memory      = "256M"
+    timeout_seconds       = 120
+    service_account_email = google_service_account.function_sa.email
 
     secret_environment_variables {
       key        = "SMTP_USERNAME"
