@@ -2,13 +2,11 @@ import os
 import smtplib
 from email.message import EmailMessage
 import functions_framework
-import vertexai
-from vertexai.generative_models import GenerativeModel
+from google import genai
 
 def send_email(routine: str) -> str:
     """Sends the generated fitness routine via email."""
     smtp_username = os.environ.get("SMTP_USERNAME")
-    # Clean the app password to remove spaces just in case
     smtp_password = os.environ.get("SMTP_PASSWORD", "").replace(" ", "")
     target_email = os.environ.get("TARGET_EMAIL")
     
@@ -37,11 +35,8 @@ def generate_and_send_routine(request):
         project_id = os.environ.get("PROJECT_ID")
         region = os.environ.get("REGION")
         
-        # Initialize Vertex AI for the Google Cloud project
-        vertexai.init(project=project_id, location=region)
-        
-        # Use Gemini 1.5 Flash 001 which is fully supported in us-central1
-        model = GenerativeModel("gemini-1.5-flash-001")
+        # Initialize the modern unified Google GenAI SDK specifically for Vertex AI
+        client = genai.Client(vertexai=True, project=project_id, location=region)
         
         prompt = (
             "You are a fitness coach. Create a unique daily bodyweight routine. "
@@ -54,7 +49,11 @@ def generate_and_send_routine(request):
             "Format the response cleanly in plain text."
         )
         
-        response = model.generate_content(prompt)
+        response = client.models.generate_content(
+            model='gemini-1.5-flash',
+            contents=prompt,
+        )
+        
         routine = response.text
         
         email_status = send_email(routine)
