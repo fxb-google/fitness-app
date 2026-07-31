@@ -26,3 +26,9 @@ variable "target_email" {
   description = "The destination email address for the fitness routines"
   sensitive   = true
 }
+
+variable "gemini_api_key" {
+  description = "The Gemini API Key"
+  type        = string
+  sensitive   = true
+}

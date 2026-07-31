@@ -32,11 +32,13 @@ def generate_and_send_routine(request):
     """HTTP Cloud Function entrypoint."""
     
     try:
-        project_id = os.environ.get("PROJECT_ID")
-        region = os.environ.get("REGION")
+        api_key = os.environ.get("GEMINI_API_KEY")
         
-        # Initialize the modern unified Google GenAI SDK specifically for Vertex AI
-        client = genai.Client(vertexai=True, project=project_id, location=region)
+        if not api_key:
+            return "Error: GEMINI_API_KEY environment variable not set.", 500
+            
+        # Initialize the modern unified Google GenAI SDK using the standard Developer API key
+        client = genai.Client(api_key=api_key)
         
         prompt = (
             "You are a fitness coach. Create a unique daily bodyweight routine. "

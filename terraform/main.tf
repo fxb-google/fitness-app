@@ -20,7 +20,8 @@ resource "google_project_service" "services" {
     "run.googleapis.com",
     "cloudscheduler.googleapis.com",
     "storage.googleapis.com",
-    "aiplatform.googleapis.com"
+    "aiplatform.googleapis.com",
+    "generativelanguage.googleapis.com"
   ])
   service            = each.key
   disable_on_destroy = false
@@ -106,11 +107,12 @@ resource "google_cloudfunctions2_function" "fitness_agent" {
     service_account_email = google_service_account.fitness_sa.email
     
     environment_variables = {
-      SMTP_USERNAME = var.smtp_username
-      SMTP_PASSWORD = var.smtp_password
-      TARGET_EMAIL  = var.target_email
-      PROJECT_ID    = var.project_id
-      REGION        = var.region
+      SMTP_USERNAME  = var.smtp_username
+      SMTP_PASSWORD  = var.smtp_password
+      TARGET_EMAIL   = var.target_email
+      PROJECT_ID     = var.project_id
+      REGION         = var.region
+      GEMINI_API_KEY = var.gemini_api_key
     }
   }
 }
