@@ -4,6 +4,7 @@ from email.message import EmailMessage
 import functions_framework
 from google import genai
 from google.cloud import firestore
+import json
 
 def send_email(routine: str) -> str:
     """Sends the generated fitness routine via email."""
@@ -90,3 +91,36 @@ Format the response cleanly in plain text without markdown formatting if possibl
     except Exception as e:
         print(f"Error: {e}")
         return f"Error generating routine: {e}", 500
+
+@functions_framework.http
+def get_workouts(request):
+    """HTTP Cloud Function to return workout history as JSON."""
+    # Set CORS headers for the preflight request
+    if request.method == 'OPTIONS':
+        headers = {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET',
+            'Access-Control-Allow-Headers': 'Content-Type',
+            'Access-Control-Max-Age': '3600'
+        }
+        return ('', 204, headers)
+
+    headers = {'Access-Control-Allow-Origin': '*'}
+    
+    try:
+        project_id = os.environ.get("PROJECT_ID")
+        db = firestore.Client(project=project_id)
+        
+        workouts_ref = db.collection("workouts").order_by("timestamp", direction=firestore.Query.DESCENDING).limit(30)
+        
+        history = []
+        for doc in workouts_ref.stream():
+            data = doc.to_dict()
+            if 'timestamp' in data and data['timestamp']:
+                data['timestamp'] = data['timestamp'].isoformat()
+            history.append(data)
+            
+        return (json.dumps(history), 200, headers)
+    except Exception as e:
+        print(f"Error fetching workouts: {e}")
+        return (json.dumps({"error": str(e)}), 500, headers)

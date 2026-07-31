@@ -168,3 +168,46 @@ resource "google_cloud_run_service_iam_member" "scheduler_invoker" {
   role     = "roles/run.invoker"
   member   = "serviceAccount:${google_service_account.fitness_sa.email}"
 }
+
+# Cloud Function (API for Dashboard)
+resource "google_cloudfunctions2_function" "workouts_api" {
+  name        = "workouts-api-function"
+  location    = var.region
+  description = "API to fetch workouts for Dashboard"
+
+  build_config {
+    runtime         = "python311"
+    entry_point     = "get_workouts"
+    service_account = google_service_account.fitness_sa.id
+    source {
+      storage_source {
+        bucket = google_storage_bucket.function_bucket.name
+        object = google_storage_bucket_object.object.name
+      }
+    }
+  }
+
+  service_config {
+    max_instance_count    = 5
+    available_memory      = "256M"
+    timeout_seconds       = 60
+    service_account_email = google_service_account.fitness_sa.email
+    
+    environment_variables = {
+      PROJECT_ID = var.project_id
+    }
+  }
+}
+
+# Allow public unauthenticated access to the API function
+resource "google_cloud_run_service_iam_member" "public_api_invoker" {
+  location = google_cloudfunctions2_function.workouts_api.location
+  service  = google_cloudfunctions2_function.workouts_api.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
+}
+
+output "workouts_api_url" {
+  value       = google_cloudfunctions2_function.workouts_api.service_config[0].uri
+  description = "The public URL of the Workouts API"
+}
