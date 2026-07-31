@@ -19,7 +19,6 @@ resource "google_project_service" "services" {
     "cloudbuild.googleapis.com",
     "run.googleapis.com",
     "cloudscheduler.googleapis.com",
-    "secretmanager.googleapis.com",
     "storage.googleapis.com"
   ])
   service            = each.key
@@ -47,69 +46,7 @@ resource "google_storage_bucket_object" "object" {
   source = data.archive_file.source_zip.output_path
 }
 
-# Create Secrets
-resource "google_secret_manager_secret" "smtp_username" {
-  secret_id = "fitness_agent_smtp_username"
-  replication {
-    auto {}
-  }
-  depends_on = [google_project_service.services]
-}
-
-resource "google_secret_manager_secret_version" "smtp_username_version" {
-  secret      = google_secret_manager_secret.smtp_username.id
-  secret_data = var.smtp_username
-}
-
-resource "google_secret_manager_secret" "smtp_password" {
-  secret_id = "fitness_agent_smtp_password"
-  replication {
-    auto {}
-  }
-  depends_on = [google_project_service.services]
-}
-
-resource "google_secret_manager_secret_version" "smtp_password_version" {
-  secret      = google_secret_manager_secret.smtp_password.id
-  secret_data = var.smtp_password
-}
-
-resource "google_secret_manager_secret" "target_email" {
-  secret_id = "fitness_agent_target_email"
-  replication {
-    auto {}
-  }
-  depends_on = [google_project_service.services]
-}
-
-resource "google_secret_manager_secret_version" "target_email_version" {
-  secret      = google_secret_manager_secret.target_email.id
-  secret_data = var.target_email
-}
-
-# Create a custom service account for the Cloud Function to bypass Domain Restricted Sharing issues
-resource "google_service_account" "function_sa" {
-  account_id   = "fitness-function-sa"
-  display_name = "Fitness Cloud Function Service Account"
-}
-
-resource "google_secret_manager_secret_iam_member" "secret_access_username" {
-  secret_id = google_secret_manager_secret.smtp_username.id
-  role      = "roles/secretmanager.secretAccessor"
-  member    = "serviceAccount:${google_service_account.function_sa.email}"
-}
-
-resource "google_secret_manager_secret_iam_member" "secret_access_password" {
-  secret_id = google_secret_manager_secret.smtp_password.id
-  role      = "roles/secretmanager.secretAccessor"
-  member    = "serviceAccount:${google_service_account.function_sa.email}"
-}
-
-resource "google_secret_manager_secret_iam_member" "secret_access_target_email" {
-  secret_id = google_secret_manager_secret.target_email.id
-  role      = "roles/secretmanager.secretAccessor"
-  member    = "serviceAccount:${google_service_account.function_sa.email}"
-}
+data "google_project" "project" {}
 
 # Cloud Function (2nd Gen)
 resource "google_cloudfunctions2_function" "fitness_agent" {
@@ -129,51 +66,16 @@ resource "google_cloudfunctions2_function" "fitness_agent" {
   }
 
   service_config {
-    max_instance_count    = 1
-    available_memory      = "256M"
-    timeout_seconds       = 120
-    service_account_email = google_service_account.function_sa.email
-
-    secret_environment_variables {
-      key        = "SMTP_USERNAME"
-      project_id = var.project_id
-      secret     = google_secret_manager_secret.smtp_username.secret_id
-      version    = "latest"
-    }
-
-    secret_environment_variables {
-      key        = "SMTP_PASSWORD"
-      project_id = var.project_id
-      secret     = google_secret_manager_secret.smtp_password.secret_id
-      version    = "latest"
-    }
-
-    secret_environment_variables {
-      key        = "TARGET_EMAIL"
-      project_id = var.project_id
-      secret     = google_secret_manager_secret.target_email.secret_id
-      version    = "latest"
+    max_instance_count = 1
+    available_memory   = "256M"
+    timeout_seconds    = 120
+    
+    environment_variables = {
+      SMTP_USERNAME = var.smtp_username
+      SMTP_PASSWORD = var.smtp_password
+      TARGET_EMAIL  = var.target_email
     }
   }
-
-  depends_on = [
-    google_secret_manager_secret_iam_member.secret_access_username,
-    google_secret_manager_secret_iam_member.secret_access_password,
-    google_secret_manager_secret_iam_member.secret_access_target_email
-  ]
-}
-
-# Cloud Scheduler service account
-resource "google_service_account" "scheduler_sa" {
-  account_id   = "fitness-scheduler-sa"
-  display_name = "Cloud Scheduler Service Account"
-}
-
-resource "google_cloud_run_service_iam_member" "scheduler_invoker" {
-  location = google_cloudfunctions2_function.fitness_agent.location
-  service  = google_cloudfunctions2_function.fitness_agent.name
-  role     = "roles/run.invoker"
-  member   = "serviceAccount:${google_service_account.scheduler_sa.email}"
 }
 
 # Cloud Scheduler Job (5 days a week at 7 AM)
@@ -181,7 +83,7 @@ resource "google_cloud_scheduler_job" "fitness_trigger" {
   name             = "trigger-fitness-agent"
   description      = "Triggers the fitness agent Mon-Sat at 7 AM"
   schedule         = "0 7 * * 1-6"
-  time_zone        = "America/New_York" # Feel free to change to your local timezone
+  time_zone        = "America/New_York"
   attempt_deadline = "320s"
   region           = var.region
   
@@ -192,7 +94,7 @@ resource "google_cloud_scheduler_job" "fitness_trigger" {
     uri         = google_cloudfunctions2_function.fitness_agent.service_config[0].uri
     
     oidc_token {
-      service_account_email = google_service_account.scheduler_sa.email
+      service_account_email = "${data.google_project.project.number}-compute@developer.gserviceaccount.com"
     }
   }
 }
