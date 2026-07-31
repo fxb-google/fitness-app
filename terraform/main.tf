@@ -20,8 +20,7 @@ resource "google_project_service" "services" {
     "run.googleapis.com",
     "cloudscheduler.googleapis.com",
     "storage.googleapis.com",
-    "aiplatform.googleapis.com",
-    "generativelanguage.googleapis.com"
+    "aiplatform.googleapis.com"
   ])
   service            = each.key
   disable_on_destroy = false
