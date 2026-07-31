@@ -3,11 +3,10 @@ import smtplib
 from email.message import EmailMessage
 import functions_framework
 from google import genai
-from google.cloud import firestore, storage
+from google.cloud import firestore
 import json
-from datetime import timedelta
 
-def send_email(routine: str, dashboard_link: str) -> str:
+def send_email(routine: str) -> str:
     """Sends the generated fitness routine via email."""
     smtp_username = os.environ.get("SMTP_USERNAME")
     smtp_password = os.environ.get("SMTP_PASSWORD", "").replace(" ", "")
@@ -17,7 +16,7 @@ def send_email(routine: str, dashboard_link: str) -> str:
         return "Failed: SMTP_USERNAME, SMTP_PASSWORD, or TARGET_EMAIL environment variables not set."
         
     msg = EmailMessage()
-    msg.set_content(f"Here is your daily fitness routine:\n\n{routine}\n\n---\nView your history on the Dashboard: {dashboard_link}")
+    msg.set_content(f"Here is your daily fitness routine:\n\n{routine}")
     msg['Subject'] = 'Your Daily Bodyweight Routine'
     msg['From'] = smtp_username
     msg['To'] = target_email
@@ -86,53 +85,9 @@ Format the response cleanly in plain text without markdown formatting if possibl
             "routine": routine
         })
         
-        # Upload history and generate signed URL
-        signed_url = upload_and_sign_workouts(db, project_id)
-        
-        # Construct the magic link
-        # Note: Replace with the actual GitHub Pages URL
-        github_pages_url = "https://fxb-google.github.io/fitness-app/"
-        dashboard_link = f"{github_pages_url}?data={signed_url}"
-        
-        email_status = send_email(routine, dashboard_link)
+        email_status = send_email(routine)
         return f"Routine generated and saved to history. {email_status}", 200
         
     except Exception as e:
         print(f"Error: {e}")
         return f"Error generating routine: {e}", 500
-
-def upload_and_sign_workouts(db, project_id):
-    """Fetches workouts, uploads to GCS, and returns a 7-day signed URL."""
-    try:
-        # Fetch last 30 workouts
-        workouts_ref = db.collection("workouts").order_by("timestamp", direction=firestore.Query.DESCENDING).limit(30)
-        
-        history = []
-        for doc in workouts_ref.stream():
-            data = doc.to_dict()
-            if 'timestamp' in data and data['timestamp']:
-                data['timestamp'] = data['timestamp'].isoformat()
-            history.append(data)
-            
-        json_data = json.dumps(history)
-        
-        # Upload to GCS
-        storage_client = storage.Client(project=project_id)
-        bucket_name = f"{project_id}-dashboard-data"
-        bucket = storage_client.bucket(bucket_name)
-        blob = bucket.blob("workouts.json")
-        
-        # Set content type to JSON
-        blob.upload_from_string(json_data, content_type="application/json")
-        
-        # Generate 7-day signed URL for reading
-        url = blob.generate_signed_url(
-            version="v4",
-            expiration=timedelta(days=7),
-            method="GET"
-        )
-        return url
-    except Exception as e:
-        print(f"Error generating signed URL: {e}")
-        # Fallback to an empty string if it fails
-        return ""

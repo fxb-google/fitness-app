@@ -136,8 +136,8 @@ resource "google_cloudfunctions2_function" "fitness_agent" {
 # Cloud Scheduler Job (5 days a week at 7 AM)
 resource "google_cloud_scheduler_job" "fitness_trigger" {
   name             = "trigger-fitness-agent"
-  description      = "Triggers the fitness agent Mon-Sat at 7 AM"
-  schedule         = "0 7 * * 1-6"
+  description      = "Triggers the fitness agent Mon-Fri at 7 AM"
+  schedule         = "0 7 * * 1-5"
   time_zone        = "America/New_York"
   attempt_deadline = "320s"
   region           = var.region
@@ -167,30 +167,4 @@ resource "google_cloud_run_service_iam_member" "scheduler_invoker" {
   service  = google_cloudfunctions2_function.fitness_agent.name
   role     = "roles/run.invoker"
   member   = "serviceAccount:${google_service_account.fitness_sa.email}"
-}
-
-# Bucket for storing dashboard data (workouts.json)
-resource "google_storage_bucket" "dashboard_data" {
-  name                        = "${var.project_id}-dashboard-data"
-  location                    = var.region
-  uniform_bucket_level_access = true
-  depends_on                  = [google_project_service.services]
-
-  cors {
-    origin          = ["https://fxb-google.github.io"]
-    method          = ["GET", "OPTIONS"]
-    response_header = ["*"]
-    max_age_seconds = 3600
-  }
-}
-
-# Grant the Service Account token creator role to itself to sign URLs
-resource "google_project_iam_member" "sa_token_creator" {
-  project = var.project_id
-  role    = "roles/iam.serviceAccountTokenCreator"
-  member  = "serviceAccount:${google_service_account.fitness_sa.email}"
-}
-
-output "dashboard_bucket_name" {
-  value = google_storage_bucket.dashboard_data.name
 }
