@@ -133,12 +133,12 @@ resource "google_cloudfunctions2_function" "fitness_agent" {
   }
 }
 
-# Cloud Scheduler Job (5 days a week at 7 AM)
+# Cloud Scheduler Job (5 days a week at 7 AM local time)
 resource "google_cloud_scheduler_job" "fitness_trigger" {
   name             = "trigger-fitness-agent"
   description      = "Triggers the fitness agent Mon-Fri at 7 AM"
   schedule         = "0 7 * * 1-5"
-  time_zone        = "America/New_York"
+  time_zone        = var.time_zone
   attempt_deadline = "320s"
   region           = var.region
   

@@ -32,3 +32,9 @@ variable "gemini_api_key" {
   type        = string
   sensitive   = true
 }
+
+variable "time_zone" {
+  type        = string
+  description = "The timezone for the daily workout schedule"
+  default     = "Asia/Dubai"
+}
